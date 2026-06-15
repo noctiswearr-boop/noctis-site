@@ -50,6 +50,11 @@ type Profile = {
   created_at: string;
 };
 
+type CargoInfo = {
+  cargo_company: string;
+  tracking_number: string;
+};
+
 export default function AdminPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -58,6 +63,7 @@ export default function AdminPage() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
+  const [cargoInfo, setCargoInfo] = useState<Record<string, CargoInfo>>({});
 
   const activeOrders = orders.filter(
     (o) => o.status !== "Teslim Edildi" && o.status !== "İptal Edildi"
@@ -136,6 +142,21 @@ export default function AdminPage() {
     getProducts();
   }
 
+  function updateCargoInfo(
+    orderId: string,
+    field: "cargo_company" | "tracking_number",
+    value: string
+  ) {
+    setCargoInfo((prev) => ({
+      ...prev,
+      [orderId]: {
+        cargo_company: prev[orderId]?.cargo_company || "",
+        tracking_number: prev[orderId]?.tracking_number || "",
+        [field]: value,
+      },
+    }));
+  }
+
   async function updateOrderStatus(id: string, status: string) {
     await supabase.from("orders").update({ status }).eq("id", id);
 
@@ -146,6 +167,14 @@ export default function AdminPage() {
           .select("*")
           .eq("id", id)
           .single();
+
+        const selectedCargoInfo = cargoInfo[id];
+
+        if (!selectedCargoInfo?.cargo_company || !selectedCargoInfo?.tracking_number) {
+          alert("Lütfen kargo firması ve takip numarası gir.");
+          getOrders();
+          return;
+        }
 
         if (order?.email) {
           await fetch("/api/send-order-shipped", {
@@ -161,8 +190,8 @@ export default function AdminPage() {
               address: order.address,
               items: order.items,
               total_price: order.total,
-              cargo_company: "Kargo",
-              tracking_number: "-",
+              cargo_company: selectedCargoInfo.cargo_company,
+              tracking_number: selectedCargoInfo.tracking_number,
               tracking_link: "",
             }),
           });
@@ -408,6 +437,26 @@ export default function AdminPage() {
                 <p>Telefon: {order.phone}</p>
                 <p className="text-blue-200">Durum: {order.status}</p>
                 <p className="text-gray-400">Adres: {order.address}</p>
+
+                <div className="mt-5 grid gap-3 md:grid-cols-2">
+                  <input
+                    value={cargoInfo[order.id]?.cargo_company || ""}
+                    onChange={(e) =>
+                      updateCargoInfo(order.id, "cargo_company", e.target.value)
+                    }
+                    placeholder="Kargo Firması"
+                    className="w-full rounded-2xl border border-white/10 bg-black/40 p-3 text-sm outline-none focus:border-blue-300"
+                  />
+
+                  <input
+                    value={cargoInfo[order.id]?.tracking_number || ""}
+                    onChange={(e) =>
+                      updateCargoInfo(order.id, "tracking_number", e.target.value)
+                    }
+                    placeholder="Takip Numarası"
+                    className="w-full rounded-2xl border border-white/10 bg-black/40 p-3 text-sm outline-none focus:border-blue-300"
+                  />
+                </div>
 
                 <div className="mt-5 flex flex-wrap gap-3">
                   <button
