@@ -68,12 +68,15 @@ export default function Home() {
             <a href="#urunler" className="hover:text-blue-300">
               MAĞAZA
             </a>
-            <a href="#" className="hover:text-blue-300">
+
+            <Link href="/about" className="hover:text-blue-300">
               HAKKIMIZDA
-            </a>
+            </Link>
+
             <a href="#" className="hover:text-blue-300">
               İLETİŞİM
             </a>
+
             <Link href="/cart" className="hover:text-blue-300">
               SEPET
             </Link>
@@ -98,13 +101,13 @@ export default function Home() {
                 MAĞAZA
               </a>
 
-              <a
-                href="#"
+              <Link
+                href="/about"
                 onClick={() => setMenuOpen(false)}
                 className="hover:text-blue-300"
               >
                 HAKKIMIZDA
-              </a>
+              </Link>
 
               <a
                 href="#"
