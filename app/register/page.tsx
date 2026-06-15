@@ -13,39 +13,66 @@ export default function RegisterPage() {
 
   async function register(e: React.FormEvent) {
     e.preventDefault();
+
     setMessage("Üyelik oluşturuluyor...");
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanFullName = fullName.trim();
+    const cleanPhone = phone.trim();
 
-    if (error) {
-      console.error(error);
-      setMessage("Üyelik oluşturulurken hata oluştu.");
+    if (!cleanFullName || !cleanEmail || !cleanPhone || !password) {
+      setMessage("Lütfen tüm alanları doldurun.");
       return;
     }
 
-    if (data.user) {
-      const { error: profileError } = await supabase.from("profiles").insert({
-        id: data.user.id,
-        full_name: fullName,
-        email,
-        phone,
-      });
+    if (password.length < 6) {
+      setMessage("Şifre en az 6 karakter olmalıdır.");
+      return;
+    }
 
-      if (profileError) {
-        console.error(profileError);
-        setMessage("Üyelik oluştu ama profil kaydedilirken hata oluştu.");
-        return;
-      }
+    const { data, error } = await supabase.auth.signUp({
+      email: cleanEmail,
+      password,
+      options: {
+        data: {
+          full_name: cleanFullName,
+          phone: cleanPhone,
+        },
+      },
+    });
+
+    if (error) {
+      console.error("AUTH ERROR:", error);
+      setMessage(error.message);
+      return;
+    }
+
+    if (!data.user) {
+      setMessage("Kullanıcı oluşturulamadı.");
+      return;
+    }
+
+    const { error: profileError } = await supabase.from("profiles").upsert({
+      id: data.user.id,
+      full_name: cleanFullName,
+      email: cleanEmail,
+      phone: cleanPhone,
+    });
+
+    if (profileError) {
+      console.error("PROFILE ERROR:", profileError);
+      setMessage(profileError.message);
+      return;
     }
 
     setFullName("");
     setEmail("");
     setPhone("");
     setPassword("");
-    setMessage("Üyelik başarıyla oluşturuldu. Artık giriş yapabilirsiniz.");
+
+    setMessage(
+      "Üyelik oluşturuldu. Lütfen e-posta adresinize gelen doğrulama linkini onaylayın."
+    );
   }
 
   return (
@@ -59,9 +86,7 @@ export default function RegisterPage() {
           NOCTIS ÜYELİK
         </p>
 
-        <h1 className="font-serif text-5xl tracking-[0.25em]">
-          ÜYE OL
-        </h1>
+        <h1 className="font-serif text-5xl tracking-[0.25em]">ÜYE OL</h1>
 
         <p className="mt-5 text-gray-300">
           Üye olan müşteriler siparişlerinde %10 indirim kazanır.
