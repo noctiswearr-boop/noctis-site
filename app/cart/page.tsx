@@ -198,6 +198,7 @@ export default function CartPage() {
       .insert({
         user_id: userId,
         customer_name: customerName,
+        email: customerEmail,
         phone,
         address,
         product_name: cart.map((item) => item.name).join(", "),
