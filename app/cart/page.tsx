@@ -21,9 +21,19 @@ type BankAccount = {
   is_default: boolean;
 };
 
+type Profile = {
+  id: string;
+  full_name: string;
+  email: string;
+  phone: string;
+  first_discount_used: boolean;
+};
+
 export default function CartPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [bankAccount, setBankAccount] = useState<BankAccount | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+
   const [customerName, setCustomerName] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
@@ -33,7 +43,26 @@ export default function CartPage() {
   useEffect(() => {
     setCart(JSON.parse(localStorage.getItem("noctis_cart") || "[]"));
     getDefaultBank();
+    getCurrentProfile();
   }, []);
+
+  async function getCurrentProfile() {
+    const { data: userData } = await supabase.auth.getUser();
+
+    if (!userData.user) return;
+
+    const { data } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", userData.user.id)
+      .single();
+
+    if (data) {
+      setProfile(data);
+      setCustomerName(data.full_name || "");
+      setPhone(data.phone || "");
+    }
+  }
 
   async function getDefaultBank() {
     const { data } = await supabase
@@ -57,7 +86,14 @@ export default function CartPage() {
     setMessage(successMessage);
   }
 
-  const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const subtotal = cart.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0
+  );
+
+  const hasFirstDiscount = profile && profile.first_discount_used === false;
+  const discount = hasFirstDiscount ? Math.round(subtotal * 0.1) : 0;
+  const total = subtotal - discount;
 
   async function completeOrder() {
     if (cart.length === 0) {
@@ -128,6 +164,13 @@ export default function CartPage() {
         .eq("id", item.id);
     }
 
+    if (hasFirstDiscount && profile) {
+      await supabase
+        .from("profiles")
+        .update({ first_discount_used: true })
+        .eq("id", profile.id);
+    }
+
     localStorage.removeItem("noctis_cart");
     setCart([]);
     setCustomerName("");
@@ -135,7 +178,7 @@ export default function CartPage() {
     setAddress("");
     setNote("");
     setMessage(
-      "Siparişiniz oluşturuldu. Stok güncellendi. Lütfen havale/EFT yaptıktan sonra dekontu bizimle paylaşın."
+      "Siparişiniz oluşturuldu. Lütfen havale/EFT yaptıktan sonra dekontu bizimle paylaşın."
     );
   }
 
@@ -152,50 +195,6 @@ export default function CartPage() {
           <div className="mt-12 rounded-3xl border border-white/10 bg-white/[0.04] p-8">
             <p>{message || "Sepetiniz şu anda boş."}</p>
 
-            {bankAccount && message && (
-              <div className="mt-8 rounded-2xl border border-blue-300/20 bg-black/30 p-6">
-                <h3 className="text-xl font-semibold">Havale / EFT Bilgileri</h3>
-
-                <div className="mt-5 space-y-4 text-sm text-gray-300">
-                  <p>
-                    Banka: <span className="text-white">{bankAccount.bank_name}</span>
-                  </p>
-
-                  <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 md:flex-row md:items-center md:justify-between">
-                    <div>
-                      <p className="text-gray-400">Alıcı</p>
-                      <p className="text-white">{bankAccount.account_holder}</p>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        copyText(bankAccount.account_holder, "Alıcı adı kopyalandı.")
-                      }
-                      className="rounded-full border border-white/30 px-4 py-2 text-xs uppercase tracking-[0.2em] hover:bg-white hover:text-black"
-                    >
-                      Alıcıyı Kopyala
-                    </button>
-                  </div>
-
-                  <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 md:flex-row md:items-center md:justify-between">
-                    <div>
-                      <p className="text-gray-400">IBAN</p>
-                      <p className="break-all text-white">{bankAccount.iban}</p>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => copyText(bankAccount.iban, "IBAN kopyalandı.")}
-                      className="rounded-full border border-white/30 px-4 py-2 text-xs uppercase tracking-[0.2em] hover:bg-white hover:text-black"
-                    >
-                      IBAN Kopyala
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
             <Link
               href="/#urunler"
               className="mt-8 inline-block rounded-full border border-white/50 px-6 py-3 text-sm uppercase tracking-[0.25em] hover:bg-white hover:text-black"
@@ -207,6 +206,12 @@ export default function CartPage() {
           <div className="mt-12 grid gap-8 md:grid-cols-[1.2fr_0.8fr]">
             <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8">
               <h2 className="mb-6 text-2xl font-semibold">Sepetiniz</h2>
+
+              {profile && hasFirstDiscount && (
+                <p className="mb-6 rounded-2xl border border-blue-300/20 bg-blue-300/10 p-4 text-sm text-blue-100">
+                  Üye olduğunuz için ilk siparişinizde %10 indirim uygulanıyor.
+                </p>
+              )}
 
               <div className="space-y-5">
                 {cart.map((item, index) => (
@@ -233,9 +238,23 @@ export default function CartPage() {
                 ))}
               </div>
 
-              <div className="mt-8 flex items-center justify-between">
-                <span className="text-xl">Toplam</span>
-                <span className="text-4xl">{total} TL</span>
+              <div className="mt-8 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-lg text-gray-300">Ara Toplam</span>
+                  <span className="text-2xl">{subtotal} TL</span>
+                </div>
+
+                {hasFirstDiscount && (
+                  <div className="flex items-center justify-between text-blue-200">
+                    <span className="text-lg">Üye İndirimi (%10)</span>
+                    <span className="text-2xl">-{discount} TL</span>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between border-t border-white/10 pt-4">
+                  <span className="text-xl">Ödenecek Tutar</span>
+                  <span className="text-4xl">{total} TL</span>
+                </div>
               </div>
 
               <Link
@@ -247,7 +266,18 @@ export default function CartPage() {
             </div>
 
             <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8">
-              <h2 className="mb-6 text-2xl font-semibold">Sipariş Bilgileri</h2>
+              <h2 className="mb-6 text-2xl font-semibold">
+                Sipariş Bilgileri
+              </h2>
+
+              {!profile && (
+                <p className="mb-6 rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-gray-300">
+                  Üye olursanız ilk siparişinizde %10 indirim kazanırsınız.{" "}
+                  <Link href="/register" className="text-blue-200">
+                    Üye Ol
+                  </Link>
+                </p>
+              )}
 
               <div className="space-y-4">
                 <input
@@ -280,24 +310,34 @@ export default function CartPage() {
               </div>
 
               <div className="mt-8 rounded-2xl border border-blue-300/20 bg-black/30 p-6">
-                <h3 className="text-xl font-semibold">Havale / EFT Bilgileri</h3>
+                <h3 className="text-xl font-semibold">
+                  Havale / EFT Bilgileri
+                </h3>
 
                 {bankAccount ? (
                   <div className="mt-5 space-y-4 text-sm text-gray-300">
                     <p>
-                      Banka: <span className="text-white">{bankAccount.bank_name}</span>
+                      Banka:{" "}
+                      <span className="text-white">
+                        {bankAccount.bank_name}
+                      </span>
                     </p>
 
                     <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 md:flex-row md:items-center md:justify-between">
                       <div>
                         <p className="text-gray-400">Alıcı</p>
-                        <p className="text-white">{bankAccount.account_holder}</p>
+                        <p className="text-white">
+                          {bankAccount.account_holder}
+                        </p>
                       </div>
 
                       <button
                         type="button"
                         onClick={() =>
-                          copyText(bankAccount.account_holder, "Alıcı adı kopyalandı.")
+                          copyText(
+                            bankAccount.account_holder,
+                            "Alıcı adı kopyalandı."
+                          )
                         }
                         className="rounded-full border border-white/30 px-4 py-2 text-xs uppercase tracking-[0.2em] hover:bg-white hover:text-black"
                       >
@@ -308,12 +348,16 @@ export default function CartPage() {
                     <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 md:flex-row md:items-center md:justify-between">
                       <div>
                         <p className="text-gray-400">IBAN</p>
-                        <p className="break-all text-white">{bankAccount.iban}</p>
+                        <p className="break-all text-white">
+                          {bankAccount.iban}
+                        </p>
                       </div>
 
                       <button
                         type="button"
-                        onClick={() => copyText(bankAccount.iban, "IBAN kopyalandı.")}
+                        onClick={() =>
+                          copyText(bankAccount.iban, "IBAN kopyalandı.")
+                        }
                         className="rounded-full border border-white/30 px-4 py-2 text-xs uppercase tracking-[0.2em] hover:bg-white hover:text-black"
                       >
                         IBAN Kopyala
@@ -322,7 +366,8 @@ export default function CartPage() {
                   </div>
                 ) : (
                   <p className="mt-5 text-sm text-red-300">
-                    Varsayılan IBAN bulunamadı. Admin panelinden IBAN ekleyin veya varsayılan yapın.
+                    Varsayılan IBAN bulunamadı. Admin panelinden IBAN ekleyin
+                    veya varsayılan yapın.
                   </p>
                 )}
               </div>
