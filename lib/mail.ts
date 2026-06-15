@@ -7,7 +7,9 @@ function formatPrice(price: number) {
 }
 
 export async function sendOrderReceivedMail(order: any) {
-  if (!order?.email) return;
+  if (!order?.email) {
+    throw new Error("Müşteri e-posta adresi yok.");
+  }
 
   const itemsHtml = Array.isArray(order.items)
     ? order.items
@@ -24,7 +26,7 @@ export async function sendOrderReceivedMail(order: any) {
         .join("")
     : "";
 
-  await resend.emails.send({
+  const result = await resend.emails.send({
     from: process.env.NOCTIS_FROM_EMAIL || "NOCTIS <onboarding@resend.dev>",
     to: order.email,
     subject: "NOCTIS Siparişiniz Alındı",
@@ -68,12 +70,21 @@ export async function sendOrderReceivedMail(order: any) {
       </div>
     `,
   });
+
+  if (result.error) {
+    console.error("Resend sipariş mail hatası:", result.error);
+    throw new Error(result.error.message || "Resend mail gönderemedi.");
+  }
+
+  console.log("Sipariş alındı maili gönderildi:", result.data);
 }
 
 export async function sendOrderShippedMail(order: any) {
-  if (!order?.email) return;
+  if (!order?.email) {
+    throw new Error("Müşteri e-posta adresi yok.");
+  }
 
-  await resend.emails.send({
+  const result = await resend.emails.send({
     from: process.env.NOCTIS_FROM_EMAIL || "NOCTIS <onboarding@resend.dev>",
     to: order.email,
     subject: "NOCTIS Siparişiniz Kargoya Verildi",
@@ -103,4 +114,11 @@ export async function sendOrderShippedMail(order: any) {
       </div>
     `,
   });
+
+  if (result.error) {
+    console.error("Resend kargo mail hatası:", result.error);
+    throw new Error(result.error.message || "Resend mail gönderemedi.");
+  }
+
+  console.log("Kargoya verildi maili gönderildi:", result.data);
 }
