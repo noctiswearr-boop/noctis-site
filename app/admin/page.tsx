@@ -17,6 +17,7 @@ type Product = {
 type Order = {
   id: string;
   customer_name: string;
+  email?: string;
   phone: string;
   address: string;
   product_name: string;
@@ -24,6 +25,7 @@ type Order = {
   total: number;
   status: string;
   created_at: string;
+  items?: any;
 };
 
 type BankAccount = {
@@ -136,6 +138,40 @@ export default function AdminPage() {
 
   async function updateOrderStatus(id: string, status: string) {
     await supabase.from("orders").update({ status }).eq("id", id);
+
+    if (status === "Kargoya Verildi") {
+      try {
+        const { data: order } = await supabase
+          .from("orders")
+          .select("*")
+          .eq("id", id)
+          .single();
+
+        if (order?.email) {
+          await fetch("/api/send-order-shipped", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              id: order.id,
+              full_name: order.customer_name,
+              email: order.email,
+              phone: order.phone,
+              address: order.address,
+              items: order.items,
+              total_price: order.total,
+              cargo_company: "Kargo",
+              tracking_number: "-",
+              tracking_link: "",
+            }),
+          });
+        }
+      } catch (error) {
+        console.error("Kargo maili gönderilemedi:", error);
+      }
+    }
+
     getOrders();
   }
 
