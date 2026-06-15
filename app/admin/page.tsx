@@ -40,12 +40,22 @@ type Category = {
   visible: boolean;
 };
 
+type Profile = {
+  id: string;
+  full_name: string;
+  email: string;
+  phone: string;
+  created_at: string;
+};
+
 export default function AdminPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [showMembers, setShowMembers] = useState(false);
 
   const activeOrders = orders.filter(
     (o) => o.status !== "Teslim Edildi" && o.status !== "İptal Edildi"
@@ -91,11 +101,21 @@ export default function AdminPage() {
     setCategories(data || []);
   }
 
+  async function getProfiles() {
+    const { data } = await supabase
+      .from("profiles")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    setProfiles(data || []);
+  }
+
   useEffect(() => {
     getProducts();
     getOrders();
     getBankAccounts();
     getCategories();
+    getProfiles();
   }, []);
 
   async function toggleProduct(product: Product) {
@@ -171,7 +191,7 @@ export default function AdminPage() {
         </Link>
       </div>
 
-      <div className="mb-10 grid gap-6 md:grid-cols-4">
+      <div className="mb-10 grid gap-6 md:grid-cols-5">
         <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6">
           <p className="text-gray-400">Toplam Ürün</p>
           <h2 className="mt-3 text-3xl">{products.length}</h2>
@@ -192,6 +212,11 @@ export default function AdminPage() {
         <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6">
           <p className="text-gray-400">Banka Hesabı</p>
           <h2 className="mt-3 text-3xl">{bankAccounts.length}</h2>
+        </div>
+
+        <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6">
+          <p className="text-gray-400">Üye Müşteri</p>
+          <h2 className="mt-3 text-3xl">{profiles.length}</h2>
         </div>
       </div>
 
@@ -269,6 +294,58 @@ export default function AdminPage() {
 
       <section className="mt-8 rounded-3xl border border-white/10 bg-white/[0.04] p-8">
         <div className="mb-6 flex items-center justify-between">
+          <h2 className="text-2xl font-semibold">Üye Müşteriler</h2>
+
+          <button
+            onClick={() => setShowMembers(!showMembers)}
+            className="rounded-full border border-white/40 px-5 py-2 text-sm hover:bg-white hover:text-black"
+          >
+            {showMembers ? "Üyeleri Gizle" : "Üyeleri Göster"}
+          </button>
+        </div>
+
+        {showMembers && (
+          <div className="max-h-[420px] space-y-3 overflow-y-auto pr-2">
+            {profiles.length === 0 ? (
+              <p className="text-gray-400">Henüz üye müşteri yok.</p>
+            ) : (
+              profiles.map((profile) => (
+                <div
+                  key={profile.id}
+                  className="grid gap-4 rounded-2xl border border-white/10 bg-black/30 p-5 md:grid-cols-4"
+                >
+                  <div>
+                    <p className="text-gray-400">Ad Soyad</p>
+                    <p>{profile.full_name}</p>
+                  </div>
+
+                  <div>
+                    <p className="text-gray-400">E-posta</p>
+                    <p className="break-all">{profile.email}</p>
+                  </div>
+
+                  <div>
+                    <p className="text-gray-400">Telefon</p>
+                    <p>{profile.phone}</p>
+                  </div>
+
+                  <div>
+                    <p className="text-gray-400">Kayıt Tarihi</p>
+                    <p>
+                      {profile.created_at
+                        ? new Date(profile.created_at).toLocaleString("tr-TR")
+                        : "-"}
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </section>
+
+      <section className="mt-8 rounded-3xl border border-white/10 bg-white/[0.04] p-8">
+        <div className="mb-6 flex items-center justify-between">
           <h2 className="text-2xl font-semibold">Sipariş Yönetimi</h2>
 
           <button
@@ -288,33 +365,13 @@ export default function AdminPage() {
                 key={order.id}
                 className="rounded-2xl border border-white/10 bg-black/30 p-5"
               >
-                <div className="grid gap-4 md:grid-cols-4">
-                  <div>
-                    <p className="text-gray-400">Sipariş No</p>
-                    <p>#{order.id.slice(0, 8)}</p>
-                  </div>
-
-                  <div>
-                    <p className="text-gray-400">Müşteri</p>
-                    <p>{order.customer_name}</p>
-                  </div>
-
-                  <div>
-                    <p className="text-gray-400">Ürün</p>
-                    <p>
-                      {order.product_name} / {order.size}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-gray-400">Tutar</p>
-                    <p>{order.total} TL</p>
-                  </div>
-                </div>
-
-                <p className="mt-4 text-gray-300">Telefon: {order.phone}</p>
-                <p className="mt-2 text-blue-200">Durum: {order.status}</p>
-                <p className="mt-2 text-gray-400">Adres: {order.address}</p>
+                <p>Sipariş No: #{order.id.slice(0, 8)}</p>
+                <p>Müşteri: {order.customer_name}</p>
+                <p>Ürün: {order.product_name} / {order.size}</p>
+                <p>Tutar: {order.total} TL</p>
+                <p>Telefon: {order.phone}</p>
+                <p className="text-blue-200">Durum: {order.status}</p>
+                <p className="text-gray-400">Adres: {order.address}</p>
 
                 <div className="mt-5 flex flex-wrap gap-3">
                   <button
