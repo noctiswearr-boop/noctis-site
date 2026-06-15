@@ -33,6 +33,7 @@ export default function CartPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [bankAccount, setBankAccount] = useState<BankAccount | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
 
   const [customerName, setCustomerName] = useState("");
   const [phone, setPhone] = useState("");
@@ -41,26 +42,43 @@ export default function CartPage() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    setCart(JSON.parse(localStorage.getItem("noctis_cart") || "[]"));
     getDefaultBank();
-    getCurrentProfile();
+    getCartAndProfile();
   }, []);
 
-  async function getCurrentProfile() {
+  async function getCartAndProfile() {
     const { data: userData } = await supabase.auth.getUser();
+    const user = userData.user;
 
-    if (!userData.user) return;
+    if (!user) {
+      setCart(JSON.parse(localStorage.getItem("noctis_cart") || "[]"));
+      return;
+    }
 
-    const { data } = await supabase
+    setUserId(user.id);
+
+    const { data: profileData } = await supabase
       .from("profiles")
       .select("*")
-      .eq("id", userData.user.id)
+      .eq("id", user.id)
       .single();
 
-    if (data) {
-      setProfile(data);
-      setCustomerName(data.full_name || "");
-      setPhone(data.phone || "");
+    if (profileData) {
+      setProfile(profileData);
+      setCustomerName(profileData.full_name || "");
+      setPhone(profileData.phone || "");
+    }
+
+    const { data: cartData } = await supabase
+      .from("carts")
+      .select("*")
+      .eq("user_id", user.id)
+      .single();
+
+    if (cartData && Array.isArray(cartData.items)) {
+      setCart(cartData.items);
+    } else {
+      setCart([]);
     }
   }
 
@@ -75,10 +93,39 @@ export default function CartPage() {
     setBankAccount(data || null);
   }
 
-  function removeItem(index: number) {
-    const updatedCart = cart.filter((_, i) => i !== index);
+  async function saveCart(updatedCart: CartItem[]) {
     setCart(updatedCart);
-    localStorage.setItem("noctis_cart", JSON.stringify(updatedCart));
+
+    if (!userId) {
+      localStorage.setItem("noctis_cart", JSON.stringify(updatedCart));
+      return;
+    }
+
+    const { data: existingCart } = await supabase
+      .from("carts")
+      .select("id")
+      .eq("user_id", userId)
+      .single();
+
+    if (existingCart) {
+      await supabase
+        .from("carts")
+        .update({
+          items: updatedCart,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("user_id", userId);
+    } else {
+      await supabase.from("carts").insert({
+        user_id: userId,
+        items: updatedCart,
+      });
+    }
+  }
+
+  async function removeItem(index: number) {
+    const updatedCart = cart.filter((_, i) => i !== index);
+    await saveCart(updatedCart);
   }
 
   async function copyText(text: string, successMessage: string) {
@@ -171,7 +218,18 @@ export default function CartPage() {
         .eq("id", profile.id);
     }
 
-    localStorage.removeItem("noctis_cart");
+    if (userId) {
+      await supabase
+        .from("carts")
+        .update({
+          items: [],
+          updated_at: new Date().toISOString(),
+        })
+        .eq("user_id", userId);
+    } else {
+      localStorage.removeItem("noctis_cart");
+    }
+
     setCart([]);
     setCustomerName("");
     setPhone("");
