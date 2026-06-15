@@ -22,11 +22,17 @@ type Category = {
   visible: boolean;
 };
 
+type Profile = {
+  id: string;
+  full_name: string;
+};
+
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("Tüm Ürünler");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [profile, setProfile] = useState<Profile | null>(null);
 
   useEffect(() => {
     async function getData() {
@@ -43,12 +49,30 @@ export default function Home() {
         .eq("visible", true)
         .order("created_at", { ascending: true });
 
+      const { data: userData } = await supabase.auth.getUser();
+
+      if (userData.user) {
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .eq("id", userData.user.id)
+          .single();
+
+        setProfile(profileData || null);
+      }
+
       setProducts(productData || []);
       setCategories(categoryData || []);
     }
 
     getData();
   }, []);
+
+  async function logout() {
+    await supabase.auth.signOut();
+    setProfile(null);
+    window.location.href = "/";
+  }
 
   const filteredProducts = useMemo(() => {
     if (selectedCategory === "Tüm Ürünler") return products;
@@ -61,14 +85,16 @@ export default function Home() {
   return (
     <main className="min-h-screen overflow-hidden bg-black text-white">
       <nav className="fixed left-0 top-0 z-50 w-full px-8 py-6">
-        <div className="mb-4 rounded-full border border-blue-300/20 bg-black/70 px-5 py-2 text-center text-xs uppercase tracking-[0.18em] text-blue-100 backdrop-blur">
-          Üye ol, ilk siparişinde %10 indirim kazan.
-        </div>
+        {!profile && (
+          <div className="mb-4 rounded-full border border-blue-300/20 bg-black/70 px-5 py-2 text-center text-xs uppercase tracking-[0.18em] text-blue-100 backdrop-blur">
+            Üye ol, ilk siparişinde %10 indirim kazan.
+          </div>
+        )}
 
         <div className="flex items-center justify-between">
           <h1 className="font-serif text-2xl tracking-[0.45em]">NOCTIS</h1>
 
-          <div className="hidden gap-8 text-sm font-semibold uppercase tracking-[0.22em] md:flex">
+          <div className="hidden gap-8 text-sm font-semibold uppercase tracking-[0.22em] md:flex md:items-center">
             <a href="#urunler" className="hover:text-blue-300">
               MAĞAZA
             </a>
@@ -77,17 +103,42 @@ export default function Home() {
               HAKKIMIZDA
             </Link>
 
-            <Link href="/register" className="hover:text-blue-300">
-              ÜYE OL
-            </Link>
+            {profile ? (
+              <>
+                <span className="text-blue-200">
+                  MERHABA, {profile.full_name?.split(" ")[0]?.toUpperCase()}
+                </span>
 
-            <Link href="/login" className="hover:text-blue-300">
-              GİRİŞ
-            </Link>
+                <Link href="/account" className="hover:text-blue-300">
+                  HESABIM
+                </Link>
 
-            <Link href="/cart" className="hover:text-blue-300">
-              SEPET
-            </Link>
+                <Link href="/cart" className="hover:text-blue-300">
+                  SEPET
+                </Link>
+
+                <button
+                  onClick={logout}
+                  className="uppercase tracking-[0.22em] hover:text-red-300"
+                >
+                  ÇIKIŞ
+                </button>
+              </>
+            ) : (
+              <>
+                <Link href="/register" className="hover:text-blue-300">
+                  ÜYE OL
+                </Link>
+
+                <Link href="/login" className="hover:text-blue-300">
+                  GİRİŞ
+                </Link>
+
+                <Link href="/cart" className="hover:text-blue-300">
+                  SEPET
+                </Link>
+              </>
+            )}
           </div>
 
           <button
@@ -117,29 +168,62 @@ export default function Home() {
                 HAKKIMIZDA
               </Link>
 
-              <Link
-                href="/register"
-                onClick={() => setMenuOpen(false)}
-                className="hover:text-blue-300"
-              >
-                ÜYE OL
-              </Link>
+              {profile ? (
+                <>
+                  <span className="text-blue-200">
+                    MERHABA, {profile.full_name?.split(" ")[0]?.toUpperCase()}
+                  </span>
 
-              <Link
-                href="/login"
-                onClick={() => setMenuOpen(false)}
-                className="hover:text-blue-300"
-              >
-                GİRİŞ
-              </Link>
+                  <Link
+                    href="/account"
+                    onClick={() => setMenuOpen(false)}
+                    className="hover:text-blue-300"
+                  >
+                    HESABIM
+                  </Link>
 
-              <Link
-                href="/cart"
-                onClick={() => setMenuOpen(false)}
-                className="hover:text-blue-300"
-              >
-                SEPET
-              </Link>
+                  <Link
+                    href="/cart"
+                    onClick={() => setMenuOpen(false)}
+                    className="hover:text-blue-300"
+                  >
+                    SEPET
+                  </Link>
+
+                  <button
+                    onClick={logout}
+                    className="text-left uppercase tracking-[0.25em] hover:text-red-300"
+                  >
+                    ÇIKIŞ
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/register"
+                    onClick={() => setMenuOpen(false)}
+                    className="hover:text-blue-300"
+                  >
+                    ÜYE OL
+                  </Link>
+
+                  <Link
+                    href="/login"
+                    onClick={() => setMenuOpen(false)}
+                    className="hover:text-blue-300"
+                  >
+                    GİRİŞ
+                  </Link>
+
+                  <Link
+                    href="/cart"
+                    onClick={() => setMenuOpen(false)}
+                    className="hover:text-blue-300"
+                  >
+                    SEPET
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         )}
@@ -177,12 +261,23 @@ export default function Home() {
               KOLEKSİYONU KEŞFET
             </a>
 
-            <Link
-              href="/register"
-              className="rounded-full border border-blue-300/60 bg-blue-300/10 px-8 py-4 text-sm font-semibold uppercase tracking-[0.25em] text-blue-100 backdrop-blur transition hover:bg-blue-300 hover:text-black"
-            >
-              ÜYE OL %10 İNDİRİM AL
-            </Link>
+            {!profile && (
+              <Link
+                href="/register"
+                className="rounded-full border border-blue-300/60 bg-blue-300/10 px-8 py-4 text-sm font-semibold uppercase tracking-[0.25em] text-blue-100 backdrop-blur transition hover:bg-blue-300 hover:text-black"
+              >
+                ÜYE OL %10 İNDİRİM AL
+              </Link>
+            )}
+
+            {profile && (
+              <Link
+                href="/account"
+                className="rounded-full border border-blue-300/60 bg-blue-300/10 px-8 py-4 text-sm font-semibold uppercase tracking-[0.25em] text-blue-100 backdrop-blur transition hover:bg-blue-300 hover:text-black"
+              >
+                HESABIMA GİT
+              </Link>
+            )}
           </div>
         </div>
       </section>
