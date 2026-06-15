@@ -61,6 +61,10 @@ export default function Home() {
   return (
     <main className="min-h-screen overflow-hidden bg-black text-white">
       <nav className="fixed left-0 top-0 z-50 w-full px-8 py-6">
+        <div className="mb-4 rounded-full border border-blue-300/20 bg-black/70 px-5 py-2 text-center text-xs uppercase tracking-[0.18em] text-blue-100 backdrop-blur">
+          Üye ol, ilk siparişinde %10 indirim kazan.
+        </div>
+
         <div className="flex items-center justify-between">
           <h1 className="font-serif text-2xl tracking-[0.45em]">NOCTIS</h1>
 
@@ -73,9 +77,13 @@ export default function Home() {
               HAKKIMIZDA
             </Link>
 
-            <a href="#" className="hover:text-blue-300">
-              İLETİŞİM
-            </a>
+            <Link href="/register" className="hover:text-blue-300">
+              ÜYE OL
+            </Link>
+
+            <Link href="/login" className="hover:text-blue-300">
+              GİRİŞ
+            </Link>
 
             <Link href="/cart" className="hover:text-blue-300">
               SEPET
@@ -109,13 +117,21 @@ export default function Home() {
                 HAKKIMIZDA
               </Link>
 
-              <a
-                href="#"
+              <Link
+                href="/register"
                 onClick={() => setMenuOpen(false)}
                 className="hover:text-blue-300"
               >
-                İLETİŞİM
-              </a>
+                ÜYE OL
+              </Link>
+
+              <Link
+                href="/login"
+                onClick={() => setMenuOpen(false)}
+                className="hover:text-blue-300"
+              >
+                GİRİŞ
+              </Link>
 
               <Link
                 href="/cart"
@@ -140,7 +156,7 @@ export default function Home() {
 
         <div className="absolute inset-0 bg-black/45" />
 
-        <div className="relative z-10 mt-28 flex flex-col items-center">
+        <div className="relative z-10 mt-36 flex flex-col items-center">
           <p className="mb-5 text-xs uppercase tracking-[0.55em] text-blue-200">
             İlk Koleksiyon
           </p>
@@ -153,12 +169,21 @@ export default function Home() {
             Karanlıktan doğdu. Geceyi benimseyenler için tasarlandı.
           </p>
 
-          <a
-            href="#urunler"
-            className="mt-10 rounded-full border border-white/70 bg-black/30 px-8 py-4 text-sm font-semibold uppercase tracking-[0.35em] backdrop-blur transition hover:bg-white hover:text-black"
-          >
-            KOLEKSİYONU KEŞFET
-          </a>
+          <div className="mt-10 flex flex-col gap-4 md:flex-row">
+            <a
+              href="#urunler"
+              className="rounded-full border border-white/70 bg-black/30 px-8 py-4 text-sm font-semibold uppercase tracking-[0.35em] backdrop-blur transition hover:bg-white hover:text-black"
+            >
+              KOLEKSİYONU KEŞFET
+            </a>
+
+            <Link
+              href="/register"
+              className="rounded-full border border-blue-300/60 bg-blue-300/10 px-8 py-4 text-sm font-semibold uppercase tracking-[0.25em] text-blue-100 backdrop-blur transition hover:bg-blue-300 hover:text-black"
+            >
+              ÜYE OL %10 İNDİRİM AL
+            </Link>
+          </div>
         </div>
       </section>
 
