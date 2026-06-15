@@ -36,6 +36,7 @@ export default function CartPage() {
   const [userId, setUserId] = useState<string | null>(null);
 
   const [customerName, setCustomerName] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [note, setNote] = useState("");
@@ -66,7 +67,10 @@ export default function CartPage() {
     if (profileData) {
       setProfile(profileData);
       setCustomerName(profileData.full_name || "");
+      setCustomerEmail(profileData.email || user.email || "");
       setPhone(profileData.phone || "");
+    } else {
+      setCustomerEmail(user.email || "");
     }
 
     const { data: cartData } = await supabase
@@ -142,14 +146,28 @@ export default function CartPage() {
   const discount = hasFirstDiscount ? Math.round(subtotal * 0.1) : 0;
   const total = subtotal - discount;
 
+  async function sendOrderReceivedEmail(orderData: any) {
+    try {
+      await fetch("/api/send-order-received", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(orderData),
+      });
+    } catch (error) {
+      console.error("Sipariş maili gönderilemedi:", error);
+    }
+  }
+
   async function completeOrder() {
     if (cart.length === 0) {
       setMessage("Sepet boş.");
       return;
     }
 
-    if (!customerName || !phone || !address) {
-      setMessage("Lütfen ad soyad, telefon ve adres bilgilerini doldurun.");
+    if (!customerName || !customerEmail || !phone || !address) {
+      setMessage("Lütfen ad soyad, e-posta, telefon ve adres bilgilerini doldurun.");
       return;
     }
 
@@ -175,24 +193,39 @@ export default function CartPage() {
 
     setMessage("Sipariş oluşturuluyor...");
 
-    const { error } = await supabase.from("orders").insert({
-      user_id: userId,
-      customer_name: customerName,
-      phone,
-      address,
-      product_name: cart.map((item) => item.name).join(", "),
-      size: cart.map((item) => item.size).join(", "),
-      total,
-      status: "Ödeme Bekliyor",
-      items: cart,
-      note,
-    });
+    const { data: createdOrder, error } = await supabase
+      .from("orders")
+      .insert({
+        user_id: userId,
+        customer_name: customerName,
+        phone,
+        address,
+        product_name: cart.map((item) => item.name).join(", "),
+        size: cart.map((item) => item.size).join(", "),
+        total,
+        status: "Ödeme Bekliyor",
+        items: cart,
+        note,
+      })
+      .select()
+      .single();
 
     if (error) {
       console.error(error);
       setMessage("Sipariş oluşturulurken hata oluştu.");
       return;
     }
+
+    await sendOrderReceivedEmail({
+      id: createdOrder?.id || "Yeni Sipariş",
+      full_name: customerName,
+      email: customerEmail,
+      phone,
+      address,
+      items: cart,
+      total_price: total,
+      note,
+    });
 
     for (const item of cart) {
       const { data: product } = await supabase
@@ -233,11 +266,12 @@ export default function CartPage() {
 
     setCart([]);
     setCustomerName("");
+    setCustomerEmail("");
     setPhone("");
     setAddress("");
     setNote("");
     setMessage(
-      "Siparişiniz oluşturuldu. Lütfen havale/EFT yaptıktan sonra dekontu bizimle paylaşın."
+      "Siparişiniz oluşturuldu. Sipariş detayları e-posta adresinize gönderildi."
     );
   }
 
@@ -343,6 +377,14 @@ export default function CartPage() {
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
                   placeholder="Ad Soyad"
+                  className="w-full rounded-2xl border border-white/10 bg-black/40 p-4 outline-none focus:border-blue-300"
+                />
+
+                <input
+                  value={customerEmail}
+                  onChange={(e) => setCustomerEmail(e.target.value)}
+                  placeholder="E-posta"
+                  type="email"
                   className="w-full rounded-2xl border border-white/10 bg-black/40 p-4 outline-none focus:border-blue-300"
                 />
 
