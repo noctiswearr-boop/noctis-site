@@ -176,6 +176,7 @@ export default function CartPage() {
     setMessage("Sipariş oluşturuluyor...");
 
     const { error } = await supabase.from("orders").insert({
+      user_id: userId,
       customer_name: customerName,
       phone,
       address,
